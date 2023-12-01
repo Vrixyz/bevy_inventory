@@ -33,8 +33,6 @@ struct BuildRequest {
     pub item: Entity,
     pub position: Vec2,
 }
-#[derive(Component)]
-struct OkSpace;
 
 #[derive(Component)]
 enum RefusedBuild {
@@ -47,11 +45,14 @@ fn component_exist<T: Component>(q: Query<Entity, With<T>>) -> bool {
 
 fn click_get_out(
     mut commands: Commands,
-    mut q_inventory: Query<(Entity, &mut inventory::Inventory)>,
+    mut q_inventory: Query<(
+        Entity,
+        &mut inventory_generic::Inventory<crate::enemies::ItemType>,
+    )>,
     mouse_button_input: Res<Input<MouseButton>>,
     mouse_position_world: Res<MouseWorldPosition>,
 ) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
+    if mouse_button_input.just_released(MouseButton::Left) {
         for mut i in q_inventory.iter_mut() {
             let first = i.1.items.front().unwrap();
 
@@ -77,7 +78,7 @@ fn verify_empty_space(mut commands: Commands, q_requests: Query<(Entity, &BuildR
 // TODO use cmponents and check everything ok
 fn react_to_build(
     mut commands: Commands,
-    mut q_inventory: Query<&mut inventory::Inventory>,
+    mut q_inventory: Query<&mut inventory_generic::Inventory<crate::enemies::ItemType>>,
     build_events: Query<&BuildRequest, Without<RefusedBuild>>,
     mut q_transform: Query<&mut Transform>,
     mut rng: ResMut<RandomDeterministic>,
@@ -92,9 +93,9 @@ fn react_to_build(
         inventory.items.remove(item_index);
         q_transform.get_mut(event.item).unwrap().translation = event.position.extend(0f32);
         let choices = [
-            (ItemType::Gun, 2),
-            (ItemType::Rifle, 1),
-            (ItemType::Aura, 1),
+            (enemies::ItemType::Gun, 2),
+            (enemies::ItemType::Rifle, 1),
+            (enemies::ItemType::Aura, 1),
         ];
         inventory.items.push_back(
             commands

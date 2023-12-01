@@ -1,21 +1,25 @@
-mod inventory;
-mod inventory_debug;
+mod inventory_buildings_interaction;
+mod inventory_generic;
 mod simple_mouse;
+pub mod buildings;
+pub mod enemies;
+mod inventory_enemies_interaction;
 
-use inventory::{ItemVisualSource, MarkerItemVisual};
-use rand::prelude::*;
-use rand_chacha::ChaCha20Rng;
-use std::collections::VecDeque;
 
 use bevy::{
     core_pipeline::bloom::BloomSettings,
-    ecs::schedule::{LogLevel, ScheduleBuildSettings},
+    ecs::{
+        schedule::{LogLevel, ScheduleBuildSettings},
+        system::EntityCommand,
+    },
     math::{vec3, vec4},
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{},
     utils::HashMap,
 };
 use bevy_mod_picking::prelude::*;
+use rand::prelude::*;
+use rand_chacha::ChaCha20Rng;
 use simple_mouse::MainCamera;
 
 const ITEM_VISUAL_SIZE: f32 = 64f32;
@@ -83,89 +87,17 @@ pub struct InventoryPlugin;
 
 impl Plugin for InventoryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(inventory_debug::DebugPlugin);
+        app.add_plugins(inventory_buildings_interaction::DebugPlugin);
+        app.add_plugins(inventory_enemies_interaction::DebugPlugin);
         app.add_plugins(simple_mouse::MousePlugin);
-        app.add_plugins(inventory::InventoryPlugin);
-        app.add_systems(Startup, (create_assets, spawn_layout).chain());
+        app.add_plugins(buildings::Plugin);
+        app.add_plugins(enemies::Plugin);
+        app.add_systems(Startup, spawn_camera);
         app.init_resource::<RandomDeterministic>();
     }
 }
 
-#[derive(Resource)]
-pub struct ItemDef {
-    pub mesh: Mesh2dHandle,
-    pub material: Handle<ColorMaterial>,
-}
-
-impl
-    ItemVisualSource<(
-        MaterialMesh2dBundle<ColorMaterial>,
-        bevy_mod_picking::prelude::Highlight<ColorMaterial>,
-        PickableBundle,
-    )> for ItemDef
-{
-    fn create_item_visual(
-        &self,
-        position: Vec3,
-    ) -> (
-        MaterialMesh2dBundle<ColorMaterial>,
-        bevy_mod_picking::prelude::Highlight<ColorMaterial>,
-        PickableBundle,
-    ) {
-        (
-            MaterialMesh2dBundle {
-                mesh: self.mesh.clone(),
-                transform: Transform::default()
-                    .with_translation(position)
-                    .with_scale(Vec3::splat(ITEM_VISUAL_SIZE)),
-                material: self.material.clone(),
-                ..default()
-            },
-            HIGHLIGHT_TINT,
-            PickableBundle::default(), // <- Makes the mesh pickable.
-        )
-    }
-}
-
-#[derive(Resource)]
-pub struct VisualAssets {
-    pub item_def: HashMap<ItemType, ItemDef>,
-}
-
-fn create_assets(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands.insert_resource(VisualAssets {
-        item_def: [
-            (
-                ItemType::Gun,
-                ItemDef {
-                    mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-                    material: materials.add(ColorMaterial::from(Color::RED)),
-                },
-            ),
-            (
-                ItemType::Rifle,
-                ItemDef {
-                    mesh: meshes.add(Mesh::from(shape::Circle::default())).into(),
-                    material: materials.add(ColorMaterial::from(Color::YELLOW)),
-                },
-            ),
-            (
-                ItemType::Aura,
-                ItemDef {
-                    mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-                    material: materials.add(ColorMaterial::from(Color::PURPLE)),
-                },
-            ),
-        ]
-        .into(),
-    });
-}
-
-fn spawn_layout(mut commands: Commands) {
+fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera2dBundle {
             camera: Camera {
@@ -177,28 +109,5 @@ fn spawn_layout(mut commands: Commands) {
         BloomSettings::default(),
         MainCamera,
     ));
-
-    let inventory = vec![
-        commands.spawn(ItemType::Gun).id(),
-        commands.spawn(ItemType::Rifle).id(),
-        commands.spawn(ItemType::Aura).id(),
-    ]
-    .into();
-    commands.spawn((
-        inventory::Inventory { items: inventory },
-        inventory::InventoryVisualDef {
-            positions: vec![
-                vec3(0f32, 0f32, 0f32),
-                vec3(0f32, ITEM_VISUAL_SIZE + 10f32, 0f32),
-                vec3(0f32, (ITEM_VISUAL_SIZE + 10f32) * 2f32, 0f32),
-            ],
-        },
-    ));
 }
 
-#[derive(Component, Clone, Copy, Hash, Eq, PartialEq)]
-pub enum ItemType {
-    Gun,
-    Rifle,
-    Aura,
-}

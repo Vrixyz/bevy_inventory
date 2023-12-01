@@ -1,21 +1,13 @@
-mod inventory_buildings_interaction;
-mod inventory_generic;
-mod simple_mouse;
 pub mod buildings;
 pub mod enemies;
-mod inventory_enemies_interaction;
-
+mod inventory_generic;
+mod simple_mouse;
 
 use bevy::{
     core_pipeline::bloom::BloomSettings,
-    ecs::{
-        schedule::{LogLevel, ScheduleBuildSettings},
-        system::EntityCommand,
-    },
-    math::{vec3, vec4},
+    ecs::schedule::{LogLevel, ScheduleBuildSettings},
+    math::vec4,
     prelude::*,
-    sprite::{},
-    utils::HashMap,
 };
 use bevy_mod_picking::prelude::*;
 use rand::prelude::*;
@@ -87,12 +79,14 @@ pub struct InventoryPlugin;
 
 impl Plugin for InventoryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(inventory_buildings_interaction::DebugPlugin);
-        app.add_plugins(inventory_enemies_interaction::DebugPlugin);
+        app.add_plugins(buildings::interaction::DebugPlugin);
+        app.add_plugins(enemies::interaction::DebugPlugin);
         app.add_plugins(simple_mouse::MousePlugin);
         app.add_plugins(buildings::Plugin);
         app.add_plugins(enemies::Plugin);
         app.add_systems(Startup, spawn_camera);
+        app.add_systems(PostStartup, (apply_deferred, setup_selection).chain());
+        app.add_systems(Update, cycle_selection);
         app.init_resource::<RandomDeterministic>();
     }
 }
@@ -111,3 +105,33 @@ fn spawn_camera(mut commands: Commands) {
     ));
 }
 
+#[derive(Component)]
+pub struct Selection {
+    pub inventories: Vec<Entity>,
+    pub selected_index: usize,
+}
+
+fn setup_selection(
+    mut commands: Commands,
+    q_inventories: Query<
+        Entity,
+        Or<(
+            With<inventory_generic::Inventory<buildings::ItemType>>,
+            With<inventory_generic::Inventory<enemies::ItemType>>,
+        )>,
+    >,
+) {
+    commands.spawn(Selection {
+        inventories: q_inventories.iter().collect(),
+        selected_index: 0,
+    });
+}
+
+pub fn cycle_selection(mut q_selection: Query<&mut Selection>, input: Res<Input<KeyCode>>) {
+    if input.just_pressed(KeyCode::C) {
+        let mut s = q_selection.single_mut();
+        s.selected_index += 1;
+        s.selected_index %= s.inventories.len();
+        info!("Selected: {}", s.selected_index);
+    }
+}

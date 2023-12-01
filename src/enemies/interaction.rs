@@ -1,11 +1,12 @@
 use crate::simple_mouse::MouseWorldPosition;
 
-use super::*;
+use crate::{inventory_generic, Selection};
 use bevy::prelude::*;
+use rand::seq::SliceRandom;
 
 pub struct DebugPlugin;
 
-impl Plugin for DebugPlugin {
+impl bevy::app::Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
@@ -45,15 +46,17 @@ fn component_exist<T: Component>(q: Query<Entity, With<T>>) -> bool {
 
 fn click_get_out(
     mut commands: Commands,
-    mut q_inventory: Query<(
-        Entity,
-        &mut inventory_generic::Inventory<crate::buildings::ItemType>,
-    )>,
+    selection: Query<&Selection>,
+    mut q_inventory: Query<(Entity, &mut inventory_generic::Inventory<super::ItemType>)>,
     mouse_button_input: Res<Input<MouseButton>>,
     mouse_position_world: Res<MouseWorldPosition>,
 ) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
+    if mouse_button_input.just_released(MouseButton::Left) {
+        let selection = selection.single();
         for mut i in q_inventory.iter_mut() {
+            if selection.inventories[selection.selected_index] != i.0 {
+                continue;
+            }
             let first = i.1.items.front().unwrap();
 
             commands.spawn(BuildRequest {
@@ -78,10 +81,10 @@ fn verify_empty_space(mut commands: Commands, q_requests: Query<(Entity, &BuildR
 // TODO use cmponents and check everything ok
 fn react_to_build(
     mut commands: Commands,
-    mut q_inventory: Query<&mut inventory_generic::Inventory<crate::buildings::ItemType>>,
+    mut q_inventory: Query<&mut inventory_generic::Inventory<super::ItemType>>,
     build_events: Query<&BuildRequest, Without<RefusedBuild>>,
     mut q_transform: Query<&mut Transform>,
-    mut rng: ResMut<RandomDeterministic>,
+    mut rng: ResMut<crate::RandomDeterministic>,
 ) {
     for event in build_events.iter() {
         let mut inventory = q_inventory.get_mut(event.inventory).unwrap();
@@ -93,9 +96,9 @@ fn react_to_build(
         inventory.items.remove(item_index);
         q_transform.get_mut(event.item).unwrap().translation = event.position.extend(0f32);
         let choices = [
-            (buildings::ItemType::Gun, 2),
-            (buildings::ItemType::Rifle, 1),
-            (buildings::ItemType::Aura, 1),
+            (super::ItemType::Gun, 2),
+            (super::ItemType::Rifle, 1),
+            (super::ItemType::Aura, 1),
         ];
         inventory.items.push_back(
             commands

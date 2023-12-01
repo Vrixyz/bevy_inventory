@@ -1,3 +1,5 @@
+pub mod interaction;
+
 use super::HIGHLIGHT_TINT;
 use super::ITEM_VISUAL_SIZE;
 use crate::inventory_generic::*;

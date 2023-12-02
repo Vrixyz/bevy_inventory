@@ -107,7 +107,7 @@ fn react_to_build(
         );
     }
 }
-// TODO use cmponents and check everything ok
+
 fn clear_build_requests(mut commands: Commands, build_events: Query<Entity, With<BuildRequest>>) {
     for e in build_events.iter() {
         commands.entity(e).despawn();
